@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Local Diff Checker</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; min-height: 100vh; }
+  header { background: #161b22; border-bottom: 1px solid #30363d; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+  header h1 { font-size: 20px; font-weight: 600; }
+  header h1 span { color: #58a6ff; }
+  .badge { font-size: 11px; background: #238636; color: #fff; padding: 2px 8px; border-radius: 12px; margin-left: 8px; vertical-align: middle; }
+  .toolbar { display: flex; gap: 8px; }
+  .toolbar button { background: #238636; color: #fff; border: none; padding: 8px 18px; border-radius: 6px; font-size: 14px; cursor: pointer; font-weight: 600; transition: background .2s; }
+  .toolbar button:hover { background: #2ea043; }
+  .toolbar button.secondary { background: #30363d; }
+  .toolbar button.secondary:hover { background: #484f58; }
+  .editors { display: grid; grid-template-columns: 1fr 1fr; gap: 0; height: calc(100vh - 60px - 48px); }
+  .editor-pane { display: flex; flex-direction: column; border-right: 1px solid #30363d; }
+  .editor-pane:last-child { border-right: none; }
+  .editor-pane .label { background: #161b22; padding: 8px 16px; font-size: 13px; font-weight: 600; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; }
+  .editor-pane .label .file-btn { background: none; border: 1px solid #30363d; color: #8b949e; padding: 3px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+  .editor-pane .label .file-btn:hover { border-color: #58a6ff; color: #58a6ff; }
+  textarea { flex: 1; background: #0d1117; color: #c9d1d9; border: none; padding: 12px 16px; font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 13px; resize: none; outline: none; line-height: 1.6; tab-size: 4; }
+  textarea::placeholder { color: #484f58; }
+
+  /* Diff output */
+  .diff-container { display: none; height: calc(100vh - 60px - 48px); overflow: auto; background: #0d1117; }
+  .diff-table { width: 100%; border-collapse: collapse; font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 13px; line-height: 1.6; }
+  .diff-table td { padding: 0 12px; white-space: pre-wrap; word-break: break-all; vertical-align: top; }
+  .diff-table .line-num { width: 50px; min-width: 50px; text-align: right; color: #484f58; user-select: none; padding-right: 8px; border-right: 1px solid #21262d; }
+  .diff-table .line-num.left { border-right: 1px solid #21262d; }
+  .diff-table .line-num.right { border-left: 1px solid #21262d; border-right: 1px solid #21262d; }
+  .diff-table .spacer { width: 16px; min-width: 16px; }
+  tr.diff-equal td { background: #0d1117; }
+  tr.diff-delete td { background: #3d1f1f; color: #ffa198; }
+  tr.diff-delete td.line-num { background: #3d1f1f; color: #f47067; }
+  tr.diff-insert td { background: #1a3a2a; color: #7ee787; }
+  tr.diff-insert td.line-num { background: #1a3a2a; color: #3fb950; }
+  tr.diff-modify-left td { background: #3d1f1f; color: #ffa198; }
+  tr.diff-modify-left td.line-num { background: #3d1f1f; color: #f47067; }
+  tr.diff-modify-right td { background: #1a3a2a; color: #7ee787; }
+  tr.diff-modify-right td.line-num { background: #1a3a2a; color: #3fb950; }
+  .char-del { background: #6e3630; border-radius: 2px; }
+  .char-ins { background: #2a6e3f; border-radius: 2px; }
+
+  .stats { padding: 10px 24px; background: #161b22; border-bottom: 1px solid #30363d; font-size: 13px; display: none; gap: 16px; align-items: center; }
+  .stats .stat { display: flex; align-items: center; gap: 4px; }
+  .stats .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .stats .dot.green { background: #3fb950; }
+  .stats .dot.red { background: #f47067; }
+  .stats .dot.gray { background: #8b949e; }
+
+  /* Light theme */
+  body.light { background: #ffffff; color: #1f2328; }
+  body.light header { background: #f6f8fa; border-color: #d0d7de; }
+  body.light header h1 span { color: #0969da; }
+  body.light .badge { background: #1a7f37; }
+  body.light .toolbar button.secondary { background: #d0d7de; color: #1f2328; }
+  body.light .toolbar button.secondary:hover { background: #afb8c1; }
+  body.light .editor-pane { border-color: #d0d7de; }
+  body.light .editor-pane .label { background: #f6f8fa; border-color: #d0d7de; color: #1f2328; }
+  body.light .editor-pane .label .file-btn { border-color: #d0d7de; color: #656d76; }
+  body.light .editor-pane .label .file-btn:hover { border-color: #0969da; color: #0969da; }
+  body.light textarea { background: #ffffff; color: #1f2328; }
+  body.light textarea::placeholder { color: #afb8c1; }
+  body.light .diff-container { background: #ffffff; }
+  body.light .diff-table .line-num { color: #afb8c1; border-color: #d0d7de; }
+  body.light tr.diff-equal td { background: #ffffff; color: #1f2328; }
+  body.light tr.diff-delete td { background: #ffebe9; color: #82071e; }
+  body.light tr.diff-delete td.line-num { background: #ffebe9; color: #cf222e; }
+  body.light tr.diff-insert td { background: #dafbe1; color: #116329; }
+  body.light tr.diff-insert td.line-num { background: #dafbe1; color: #1a7f37; }
+  body.light tr.diff-modify-left td { background: #ffebe9; color: #82071e; }
+  body.light tr.diff-modify-left td.line-num { background: #ffebe9; color: #cf222e; }
+  body.light tr.diff-modify-right td { background: #dafbe1; color: #116329; }
+  body.light tr.diff-modify-right td.line-num { background: #dafbe1; color: #1a7f37; }
+  body.light .char-del { background: #ff818266; }
+  body.light .char-ins { background: #2da44e66; }
+  body.light .stats { background: #f6f8fa; border-color: #d0d7de; color: #1f2328; }
+  body.light #btnBack { background: #d0d7de !important; color: #1f2328 !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span>⇋</span> Local Diff Checker <span class="badge">100% Offline</span></h1>
+  <div class="toolbar">
+    <button class="secondary" id="btnTheme" title="Toggle light/dark theme">🌗 Theme</button>
+    <button class="secondary" id="btnSwap" title="Swap left and right">⇄ Swap</button>
+    <button class="secondary" id="btnClear">✕ Clear</button>
+    <button id="btnCompare">Compare ▶</button>
+  </div>
+</header>
+
+<div class="stats" id="stats">
+  <div class="stat"><span class="dot green"></span> <span id="statIns">0</span> additions</div>
+  <div class="stat"><span class="dot red"></span> <span id="statDel">0</span> deletions</div>
+  <div class="stat"><span class="dot gray"></span> <span id="statEq">0</span> unchanged</div>
+  <button class="secondary" id="btnBack" style="margin-left:auto;background:#30363d;color:#c9d1d9;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;">← Edit</button>
+</div>
+
+<div class="editors" id="editors">
+  <div class="editor-pane">
+    <div class="label">Original <button class="file-btn" onclick="loadFile('left')">📂 Load file</button></div>
+    <textarea id="left" placeholder="Paste your original text here..."></textarea>
+  </div>
+  <div class="editor-pane">
+    <div class="label">Modified <button class="file-btn" onclick="loadFile('right')">📂 Load file</button></div>
+    <textarea id="right" placeholder="Paste your modified text here..."></textarea>
+  </div>
+</div>
+
+<div class="diff-container" id="diffContainer">
+  <table class="diff-table" id="diffTable"></table>
+</div>
+
+<input type="file" id="fileInput" style="display:none">
+
+<script>
+let fileTarget = null;
+const fileInput = document.getElementById('fileInput');
+
+function loadFile(target) {
+  fileTarget = target;
+  fileInput.click();
+}
+
+fileInput.addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => { document.getElementById(fileTarget).value = ev.target.result; };
+  reader.readAsText(file);
+  fileInput.value = '';
+});
+
+document.getElementById('btnTheme').onclick = () => {
+  document.body.classList.toggle('light');
+};
+
+document.getElementById('btnSwap').onclick = () => {
+  const l = document.getElementById('left'), r = document.getElementById('right');
+  [l.value, r.value] = [r.value, l.value];
+};
+
+document.getElementById('btnClear').onclick = () => {
+  document.getElementById('left').value = '';
+  document.getElementById('right').value = '';
+  showEditors();
+};
+
+document.getElementById('btnBack').onclick = showEditors;
+
+function showEditors() {
+  document.getElementById('editors').style.display = 'grid';
+  document.getElementById('diffContainer').style.display = 'none';
+  document.getElementById('stats').style.display = 'none';
+}
+
+document.getElementById('btnCompare').onclick = () => {
+  const a = document.getElementById('left').value;
+  const b = document.getElementById('right').value;
+  const diff = computeDiff(a, b);
+  renderDiff(diff);
+  document.getElementById('editors').style.display = 'none';
+  document.getElementById('diffContainer').style.display = 'block';
+  document.getElementById('stats').style.display = 'flex';
+};
+
+// --- LCS-based line diff ---
+function computeDiff(textA, textB) {
+  const a = textA.split('\n'), b = textB.split('\n');
+  const n = a.length, m = b.length;
+
+  // Optimised LCS for reasonable sizes; fallback to simple for huge files
+  const dp = Array.from({length: n+1}, () => new Int16Array(m+1));
+  for (let i = 1; i <= n; i++)
+    for (let j = 1; j <= m; j++)
+      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1]+1 : Math.max(dp[i-1][j], dp[i][j-1]);
+
+  // Backtrack
+  const result = [];
+  let i = n, j = m;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && a[i-1] === b[j-1]) {
+      result.push({type:'equal', left:a[--i], right:b[--j], li:i, ri:j});
+    } else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) {
+      result.push({type:'insert', right:b[--j], ri:j});
+    } else {
+      result.push({type:'delete', left:a[--i], li:i});
+    }
+  }
+  result.reverse();
+
+  // Pair up adjacent delete+insert as modifications
+  const merged = [];
+  for (let k = 0; k < result.length; k++) {
+    if (result[k].type === 'delete' && k+1 < result.length && result[k+1].type === 'insert') {
+      merged.push({type:'modify', left:result[k].left, right:result[k+1].right, li:result[k].li, ri:result[k+1].ri});
+      k++;
+    } else {
+      merged.push(result[k]);
+    }
+  }
+  return merged;
+}
+
+function charDiff(a, b) {
+  // Simple word-level highlight
+  const dp2 = Array.from({length:a.length+1}, ()=>new Uint16Array(b.length+1));
+  for(let i=1;i<=a.length;i++) for(let j=1;j<=b.length;j++)
+    dp2[i][j]=a[i-1]===b[j-1]?dp2[i-1][j-1]+1:Math.max(dp2[i-1][j],dp2[i][j-1]);
+  let i=a.length,j=b.length; const ops=[];
+  while(i>0||j>0){
+    if(i>0&&j>0&&a[i-1]===b[j-1]){ops.push({t:'eq',a:a[--i],b:b[--j]});}
+    else if(j>0&&(i===0||dp2[i][j-1]>=dp2[i-1][j])){ops.push({t:'ins',b:b[--j]});}
+    else{ops.push({t:'del',a:a[--i]});}
+  }
+  ops.reverse();
+  let ha='',hb='';
+  for(const o of ops){
+    if(o.t==='eq'){ha+=esc(o.a);hb+=esc(o.b);}
+    else if(o.t==='del'){ha+=`<span class="char-del">${esc(o.a)}</span>`;}
+    else{hb+=`<span class="char-ins">${esc(o.b)}</span>`;}
+  }
+  return {ha,hb};
+}
+
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function renderDiff(diff) {
+  let html = '', ins=0, del=0, eq=0, ln=0, rn=0;
+  for (const d of diff) {
+    if (d.type==='equal') {
+      ln++; rn++; eq++;
+      html += `<tr class="diff-equal"><td class="line-num left">${ln}</td><td>${esc(d.left)}</td><td class="spacer"></td><td class="line-num right">${rn}</td><td>${esc(d.right)}</td></tr>`;
+    } else if (d.type==='delete') {
+      ln++; del++;
+      html += `<tr class="diff-delete"><td class="line-num left">${ln}</td><td>${esc(d.left)}</td><td class="spacer"></td><td class="line-num right"></td><td></td></tr>`;
+    } else if (d.type==='insert') {
+      rn++; ins++;
+      html += `<tr class="diff-insert"><td class="line-num left"></td><td></td><td class="spacer"></td><td class="line-num right">${rn}</td><td>${esc(d.right)}</td></tr>`;
+    } else { // modify
+      ln++; rn++; del++; ins++;
+      const {ha,hb} = charDiff(d.left, d.right);
+      html += `<tr class="diff-modify-left"><td class="line-num left">${ln}</td><td>${ha}</td><td class="spacer"></td><td class="line-num right">${rn}</td><td>${hb}</td></tr>`;
+    }
+  }
+  document.getElementById('diffTable').innerHTML = html;
+  document.getElementById('statIns').textContent = ins;
+  document.getElementById('statDel').textContent = del;
+  document.getElementById('statEq').textContent = eq;
+}
+</script>
+</body>
+</html>
