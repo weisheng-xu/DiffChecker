@@ -10,7 +10,8 @@ Online diff checkers like diffchecker.com require you to paste your code into th
 
 - **Side-by-side diff view** with line numbers
 - **Character-level highlighting** on modified lines
-- **Light / Dark theme** toggle
+- **Light / Dark theme** toggle (defaults to light)
+- **Ignore spaces** toggle for whitespace-insensitive comparison
 - **Load files** from disk or paste text directly
 - **Swap** left and right panels
 - **Stats bar** showing additions, deletions, and unchanged lines
