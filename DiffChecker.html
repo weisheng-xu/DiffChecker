@@ -56,7 +56,7 @@
   body.light { background: #ffffff; color: #1f2328; }
   body.light header { background: #f6f8fa; border-color: #d0d7de; }
   body.light header h1 span { color: #0969da; }
-  body.light .badge { background: #1a7f37; }
+  body.light .badge { background: #1a7f37; color: #fff; }
   body.light .toolbar button.secondary { background: #d0d7de; color: #1f2328; }
   body.light .toolbar button.secondary:hover { background: #afb8c1; }
   body.light .editor-pane { border-color: #d0d7de; }
@@ -82,12 +82,13 @@
   body.light #btnBack { background: #d0d7de !important; color: #1f2328 !important; }
 </style>
 </head>
-<body>
+<body class="light">
 
 <header>
   <h1><span>⇋</span> Local Diff Checker <span class="badge">100% Offline</span></h1>
   <div class="toolbar">
     <button class="secondary" id="btnTheme" title="Toggle light/dark theme">🌗 Theme</button>
+    <button class="secondary" id="btnWhitespace" title="Toggle whitespace handling">⎵ Spaces: Compare</button>
     <button class="secondary" id="btnSwap" title="Swap left and right">⇄ Swap</button>
     <button class="secondary" id="btnClear">✕ Clear</button>
     <button id="btnCompare">Compare ▶</button>
@@ -140,6 +141,17 @@ document.getElementById('btnTheme').onclick = () => {
   document.body.classList.toggle('light');
 };
 
+// Whitespace toggle
+let ignoreSpaces = false;
+document.getElementById('btnWhitespace').onclick = () => {
+  ignoreSpaces = !ignoreSpaces;
+  document.getElementById('btnWhitespace').textContent = ignoreSpaces ? '⎵ Spaces: Ignore' : '⎵ Spaces: Compare';
+};
+
+function normalizeLine(line) {
+  return ignoreSpaces ? line.replace(/\s+/g, '') : line;
+}
+
 document.getElementById('btnSwap').onclick = () => {
   const l = document.getElementById('left'), r = document.getElementById('right');
   [l.value, r.value] = [r.value, l.value];
@@ -178,13 +190,13 @@ function computeDiff(textA, textB) {
   const dp = Array.from({length: n+1}, () => new Int16Array(m+1));
   for (let i = 1; i <= n; i++)
     for (let j = 1; j <= m; j++)
-      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1]+1 : Math.max(dp[i-1][j], dp[i][j-1]);
+      dp[i][j] = normalizeLine(a[i-1]) === normalizeLine(b[j-1]) ? dp[i-1][j-1]+1 : Math.max(dp[i-1][j], dp[i][j-1]);
 
   // Backtrack
   const result = [];
   let i = n, j = m;
   while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && a[i-1] === b[j-1]) {
+    if (i > 0 && j > 0 && normalizeLine(a[i-1]) === normalizeLine(b[j-1])) {
       result.push({type:'equal', left:a[--i], right:b[--j], li:i, ri:j});
     } else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) {
       result.push({type:'insert', right:b[--j], ri:j});
@@ -208,7 +220,7 @@ function computeDiff(textA, textB) {
 }
 
 function charDiff(a, b) {
-  // Simple word-level highlight
+  if (ignoreSpaces) { a = a.replace(/\s+/g, ''); b = b.replace(/\s+/g, ''); }
   const dp2 = Array.from({length:a.length+1}, ()=>new Uint16Array(b.length+1));
   for(let i=1;i<=a.length;i++) for(let j=1;j<=b.length;j++)
     dp2[i][j]=a[i-1]===b[j-1]?dp2[i-1][j-1]+1:Math.max(dp2[i-1][j],dp2[i][j-1]);
