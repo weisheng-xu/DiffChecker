@@ -10,11 +10,19 @@ Online diff checkers like diffchecker.com require you to paste your code into th
 
 - **Side-by-side diff view** with line numbers
 - **Character-level highlighting** on modified lines
+- **Line vs Character mode** — compare line-by-line or character-by-character
 - **Light / Dark theme** toggle (defaults to light)
+- **Multi-language** support — English (default), Chinese, and French
 - **Ignore spaces** toggle for whitespace-insensitive comparison
+- **Case-insensitive** toggle for case-insensitive comparison
+- **Drag & drop** files directly onto the text panels
 - **Load files** from disk or paste text directly
 - **Swap** left and right panels
+- **Line counts** displayed below each editor
+- **Prev/Next navigation** — jump between changes in the diff view
 - **Stats bar** showing additions, deletions, and unchanged lines
+- **Ctrl+Enter** shortcut to quickly compare
+- **Built-in help** — click ❓ for a quick guide in your chosen language
 - **Zero dependencies** — single HTML file, no install required
 
 ## How to Use
