@@ -19,7 +19,7 @@ Online diff checkers like diffchecker.com require you to paste your code into th
 
 ## How to Use
 
-Open `DiffChecker.html` in any browser.
+Open `index.html` in any browser.
 
 ## Quick Start
 
@@ -36,7 +36,7 @@ Open `DiffChecker.html` in any browser.
 
 | File | Description |
 |------|-------------|
-| `DiffChecker.html` | The main application (single-file, self-contained) |
+| `index.html` | The main application (single-file, self-contained) |
 | `README.md` | This file |
 
 ## Privacy
